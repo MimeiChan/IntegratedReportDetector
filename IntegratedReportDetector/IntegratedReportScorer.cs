@@ -8,6 +8,7 @@ namespace IntegratedReportDetector
     {
         private readonly OllamaClient _ollamaClient;
         private readonly string _promptTemplate;
+        private readonly string _fiscalYearPromptTemplate;
 
         public IntegratedReportScorer(OllamaClient ollamaClient)
         {
@@ -31,6 +32,20 @@ namespace IntegratedReportDetector
 スコア: [0-100の数値]
 理由: [簡潔な判断理由]
 ";
+            _fiscalYearPromptTemplate = @"
+あなたはPDFが当年度のものであるかどうかを判断する専門家です。
+以下のテキストはPDFの最初の数ページから抽出されたものです。
+現在の年度は{0}年度です。日本の会計年度は4月から翌年3月までです。
+このテキストを分析し、このPDFが当年度（{0}年度）の文書であるかどうかを判定してください。
+
+抽出テキスト：
+{1}
+
+回答形式：
+判定: [true/false]
+理由: [簡潔な判断理由]
+検出された年度: [文書内で言及されている年度、例: 2024年度]
+";
         }
 
         public async Task<(int Score, string Reason)> ScorePdfText(string pdfText)
@@ -39,6 +54,89 @@ namespace IntegratedReportDetector
             var response = await _ollamaClient.GenerateCompletion(prompt);
             
             return ParseScoreAndReason(response);
+        }
+
+        public async Task<(bool IsCurrentFiscalYear, string Reason, string DetectedYear)> CheckFiscalYear(string pdfText)
+        {
+            // 現在の年度を計算
+            int currentFiscalYear = CalculateCurrentFiscalYear();
+            
+            var prompt = string.Format(_fiscalYearPromptTemplate, currentFiscalYear, pdfText);
+            var response = await _ollamaClient.GenerateCompletion(prompt);
+            
+            return ParseFiscalYearResult(response);
+        }
+
+        private int CalculateCurrentFiscalYear()
+        {
+            // 現在の日付を取得
+            DateTime now = DateTime.Now;
+            
+            // 日本の会計年度は4月から始まる
+            // 1月〜3月の場合は前年度になる
+            if (now.Month >= 4)
+            {
+                return now.Year;
+            }
+            else
+            {
+                return now.Year - 1;
+            }
+        }
+
+        private (bool IsCurrentFiscalYear, string Reason, string DetectedYear) ParseFiscalYearResult(string response)
+        {
+            bool isCurrentFiscalYear = false;
+            string reason = string.Empty;
+            string detectedYear = string.Empty;
+
+            try
+            {
+                // 判定結果を探す
+                var resultMatch = Regex.Match(response, @"判定:\s*(true|false)", RegexOptions.IgnoreCase);
+                if (resultMatch.Success && resultMatch.Groups.Count > 1)
+                {
+                    isCurrentFiscalYear = resultMatch.Groups[1].Value.ToLower() == "true";
+                }
+
+                // 理由を探す
+                var reasonMatch = Regex.Match(response, @"理由:\s*(.+?)(\r|\n|$)");
+                if (reasonMatch.Success && reasonMatch.Groups.Count > 1)
+                {
+                    reason = reasonMatch.Groups[1].Value.Trim();
+                }
+
+                // 検出された年度を探す
+                var yearMatch = Regex.Match(response, @"検出された年度:\s*(.+?)(\r|\n|$)");
+                if (yearMatch.Success && yearMatch.Groups.Count > 1)
+                {
+                    detectedYear = yearMatch.Groups[1].Value.Trim();
+                }
+
+                // 理由が見つからない場合、レスポンス全体から推測
+                if (string.IsNullOrWhiteSpace(reason) && !string.IsNullOrWhiteSpace(response))
+                {
+                    var paragraphs = response.Split(new[] { "\r\n\r\n", "\n\n" }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var paragraph in paragraphs)
+                    {
+                        if (!paragraph.Contains("判定:") && !paragraph.Contains("検出された年度:") && paragraph.Length > 10)
+                        {
+                            reason = paragraph.Trim();
+                            if (reason.Length > 200) reason = reason.Substring(0, 197) + "...";
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"年度判定解析エラー: {ex.Message}");
+                isCurrentFiscalYear = false;
+                reason = "年度判定の解析に失敗しました";
+                detectedYear = "不明";
+            }
+
+            return (isCurrentFiscalYear, reason, detectedYear);
         }
 
         private (int Score, string Reason) ParseScoreAndReason(string response)
