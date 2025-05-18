@@ -36,7 +36,7 @@ namespace IntegratedReportDetector
                     Console.WriteLine($"抽出テキスト長: {extractedText.Length} 文字");
 
                     // Ollamaクライアント初期化
-                    var ollamaClient = new OllamaClient("http://192.168.1.234:11434", "gemma3:4b-it-qat"); // モデル名はllama2などに適宜変更
+                    var ollamaClient = new OllamaClient("http://localhost.234:11434", "gemma3:4b-it-qat"); // モデル名はllama2などに適宜変更
                     var scorer = new IntegratedReportScorer(ollamaClient);
 
                     // 統合報告書スコアリング
