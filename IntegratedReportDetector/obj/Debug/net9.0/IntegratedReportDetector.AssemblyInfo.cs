@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("IntegratedReportDetector")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+999e55ff76770515290e31b12187edaa3abade8c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+29d632709d94931693df3b08549e94a8e3555f41")]
 [assembly: System.Reflection.AssemblyProductAttribute("IntegratedReportDetector")]
 [assembly: System.Reflection.AssemblyTitleAttribute("IntegratedReportDetector")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
