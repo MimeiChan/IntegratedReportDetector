@@ -35,17 +35,33 @@ namespace IntegratedReportDetector
 
                     Console.WriteLine($"抽出テキスト長: {extractedText.Length} 文字");
 
-                    // Ollamaでスコアリング
-                    Console.WriteLine("LLMによるスコアリング中...");
+                    // Ollamaクライアント初期化
                     var ollamaClient = new OllamaClient("http://localhost:11434", "gemma3:1b"); // モデル名はllama2などに適宜変更
                     var scorer = new IntegratedReportScorer(ollamaClient);
+
+                    // 統合報告書スコアリング
+                    Console.WriteLine("LLMによる統合報告書判定中...");
                     var (score, reason) = await scorer.ScorePdfText(extractedText);
+
+                    // 年度判定
+                    Console.WriteLine("LLMによる当年度判定中...");
+                    var (isCurrentFiscalYear, fiscalYearReason, detectedYear) = await scorer.CheckFiscalYear(extractedText);
 
                     // 結果の表示
                     Console.WriteLine("\n===== 分析結果 =====");
                     Console.WriteLine($"スコア: {score}/100");
                     Console.WriteLine($"判断理由: {reason}");
-                    Console.WriteLine($"判定: {(score >= 70 ? "統合報告書の可能性が高い" : "統合報告書ではない可能性が高い")}");
+                    Console.WriteLine($"統合報告書判定: {(score >= 70 ? "統合報告書の可能性が高い" : "統合報告書ではない可能性が高い")}");
+                    
+                    Console.WriteLine("\n===== 年度判定 =====");
+                    Console.WriteLine($"当年度判定: {(isCurrentFiscalYear ? "当年度の文書です" : "当年度の文書ではありません")}");
+                    Console.WriteLine($"検出された年度: {detectedYear}");
+                    Console.WriteLine($"判断理由: {fiscalYearReason}");
+                    
+                    // 総合判定
+                    bool isRelevantDocument = score >= 70 && isCurrentFiscalYear;
+                    Console.WriteLine("\n===== 総合判定 =====");
+                    Console.WriteLine($"結果: {(isRelevantDocument ? "当年度の統合報告書です" : "当年度の統合報告書ではありません")}");
                 }
                 catch (Exception ex)
                 {
